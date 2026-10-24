@@ -4,8 +4,8 @@
 // Package client is a small HTTP client for the Plotwork REST API.
 //
 // It covers only the routes the Terraform provider needs: importing a file
-// into Plotwork source, rendering source to SVG, and publishing and deleting
-// hosted diagrams. Every failing response is returned as an *APIError that
+// into Plotwork source, rendering source to SVG, publishing and deleting
+// hosted diagrams, and an organisation's brand, icons and patterns. Every failing response is returned as an *APIError that
 // carries the API's stable error code, so callers branch on codes, not on
 // message text.
 package client

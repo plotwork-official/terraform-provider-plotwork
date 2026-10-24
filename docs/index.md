@@ -16,6 +16,9 @@ No separate CI job or agent is involved.
 | `plotwork_import` | Turns files (Terraform, Kubernetes, Compose, SQL and more) into Plotwork source | Pro |
 | `plotwork_render` | Renders source to an SVG you write anywhere: S3, Azure Storage, Google Cloud Storage, a file | Pro |
 | `plotwork_diagram` | Publishes to your library or your organisation's, with an optional stable link | Every plan |
+| `plotwork_organization_brand` | Sets the colours an organisation's diagrams are painted in | Pro |
+| `plotwork_organization_icon` | Uploads a custom icon diagrams draw as `icon=org:<name>`, from a file, a bucket or a URL | Pro |
+| `plotwork_pattern` | Saves an approved pattern from a `.pattern.json` file, for agents to start from | Enterprise |
 
 ## Example usage
 
@@ -61,6 +64,13 @@ send diagram source. Plotwork works on it in memory and stores nothing unless `p
 publishes it. Send configuration, not state or plan files with secrets in them: state can hold passwords,
 and the provider cannot tell which values are secret.
 
+## An organisation's design
+
+`plotwork_organization_brand`, `plotwork_organization_icon` and `plotwork_pattern` keep an organisation's brand,
+custom icons and approved patterns in code, reviewed like the rest of the configuration. They need the owner or
+an admin's personal key, or an organisation key the owner or an admin gave the `design:write` scope under
+**Keys and CI**. Each takes `organization`, or the provider's.
+
 ## Keeping a link stable
 
 A change to a diagram's source makes a new diagram with a new `url`. Set `alias` on `plotwork_diagram`
@@ -74,4 +84,4 @@ a wiki, or an architecture decision record.
 
 - `api_key` (String, Sensitive) A Plotwork API key: a personal key, or an organisation key from **Keys and CI**. Defaults to the `PLOTWORK_API_KEY` environment variable. Prefer the variable to a value in code.
 - `api_url` (String) The API's address. Defaults to `PLOTWORK_API_URL`, else the API of the provider's release channel: `https://api.plotwork.dev` for a stable version, `https://api-preview.plotwork.dev` for a pre-release such as `0.2.0-beta.1`.
-- `organization` (String) The slug or id of the organisation `plotwork_diagram` publishes to when it names none. Defaults to `PLOTWORK_ORG`. Required for an organisation key, which publishes only to its own organisation.
+- `organization` (String) The slug or id of the organisation `plotwork_diagram` publishes to, and whose brand, icons and patterns `plotwork_organization_brand`, `plotwork_organization_icon` and `plotwork_pattern` manage, when they name none. Defaults to `PLOTWORK_ORG`. Required for an organisation key, which works only in its own organisation.

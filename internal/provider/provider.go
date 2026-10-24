@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 // Package provider implements the Plotwork Terraform provider: data sources
-// that turn infrastructure code into Plotwork diagrams and SVG, and a resource
-// that publishes a diagram to a person's or an organisation's library.
+// that turn infrastructure code into Plotwork diagrams and SVG, a resource
+// that publishes a diagram to a person's or an organisation's library, and
+// resources for an organisation's brand, custom icons and approved patterns.
 package provider
 
 import (
@@ -56,7 +57,8 @@ type providerData struct {
 	// key, so a call can say how to set one before the API refuses it.
 	hasAPIKey bool
 	// organization is the default organisation slug or id for
-	// plotwork_diagram, or empty for the caller's own library.
+	// plotwork_diagram, or empty for the caller's own library, and for the
+	// organisation's design resources.
 	organization string
 }
 
@@ -96,8 +98,9 @@ func (p *plotworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, r
 				Optional: true,
 			},
 			"organization": schema.StringAttribute{
-				MarkdownDescription: "The slug or id of the organisation `plotwork_diagram` publishes to when it names none. " +
-					"Defaults to `" + envOrganization + "`. Required for an organisation key, which publishes only to its own organisation.",
+				MarkdownDescription: "The slug or id of the organisation `plotwork_diagram` publishes to, and whose brand, icons and patterns " +
+					"`plotwork_organization_brand`, `plotwork_organization_icon` and `plotwork_pattern` manage, when they name none. " +
+					"Defaults to `" + envOrganization + "`. Required for an organisation key, which works only in its own organisation.",
 				Optional: true,
 			},
 		},
@@ -149,6 +152,9 @@ func (p *plotworkProvider) Configure(ctx context.Context, req provider.Configure
 func (p *plotworkProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		newDiagramResource,
+		newBrandResource,
+		newIconResource,
+		newPatternResource,
 	}
 }
 

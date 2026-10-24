@@ -78,6 +78,10 @@ func addAPIError(diags *diag.Diagnostics, summary string, err error) {
 		if lines := diagnosticLines(apiErr.Details); len(lines) > 0 {
 			detail += "\n\n" + strings.Join(lines, "\n")
 		}
+	default:
+		if hint := designHint(apiErr); hint != "" {
+			detail += "\n\n" + hint
+		}
 	}
 	diags.AddError(summary, detail)
 }

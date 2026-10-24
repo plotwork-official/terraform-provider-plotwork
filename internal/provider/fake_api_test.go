@@ -14,8 +14,12 @@ import (
 	"testing"
 )
 
-// fakeAPIKey is the only key the fake API accepts.
+// fakeAPIKey is a key the fake API accepts for every route.
 const fakeAPIKey = "pw_test_key"
+
+// fakeNoDesignKey is an organisation key without the design:write scope:
+// the fake accepts it, and refuses it on the design routes.
+const fakeNoDesignKey = "pw_no_design_key"
 
 // fakeDiagram is one diagram the fake API holds.
 type fakeDiagram struct {
@@ -35,12 +39,23 @@ type fakeAPI struct {
 	// routeTo, when set, sends personal publishes to this organisation's
 	// library, as an organisation's "required" Publishing setting does.
 	routeTo string
+
+	// The organisations' design, by organisation (fake_design_api_test.go).
+	brands   map[string]*fakeBrand
+	icons    map[string]map[string]*fakeIcon
+	patterns map[string]map[string]*fakePattern
+	// clock is the last updatedAt handed out, so each save is later.
+	clock int64
 }
 
 // newFakeAPI starts a fake API that stops when the test ends.
 func newFakeAPI(t *testing.T) *fakeAPI {
 	t.Helper()
-	f := &fakeAPI{t: t, diagrams: map[string]*fakeDiagram{}}
+	f := &fakeAPI{
+		t: t, diagrams: map[string]*fakeDiagram{},
+		brands: map[string]*fakeBrand{}, icons: map[string]map[string]*fakeIcon{}, patterns: map[string]map[string]*fakePattern{},
+		clock: 1_760_000_000_000,
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/import", f.authed(f.handleImport))
 	mux.HandleFunc("POST /v1/diagrams/render", f.authed(f.handleRender))
@@ -50,6 +65,7 @@ func newFakeAPI(t *testing.T) *fakeAPI {
 	mux.HandleFunc("DELETE /orgs/{org}/diagrams/{id}", f.authed(f.handleDelete))
 	mux.HandleFunc("GET /orgs/{org}/diagrams/{id}/svg", f.authed(f.handleOrgSVG))
 	mux.HandleFunc("HEAD /d/{file}", f.handleCDN)
+	f.mountDesign(mux)
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
@@ -86,7 +102,7 @@ func (f *fakeAPI) forget(id string) {
 
 func (f *fakeAPI) authed(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-API-Key") != fakeAPIKey {
+		if key := r.Header.Get("X-API-Key"); key != fakeAPIKey && key != fakeNoDesignKey {
 			writeError(w, http.StatusUnauthorized, "auth.invalid_credentials", "That API key is not valid")
 			return
 		}
