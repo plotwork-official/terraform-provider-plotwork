@@ -55,7 +55,7 @@ output "network_diagram" {
 - `alias` (String) The name of a stable link, such as `prod-network`: lower-case words joined by hyphens. `stable_url` then always shows the latest diagram. Personal libraries only; the plan limits how many an account keeps.
 - `classification` (String) For an organisation's diagram: `public`, `internal` or `confidential`. Left out, the folder's or the organisation's default.
 - `embed_source` (Boolean) Write the source into the stored SVG so the diagram can be opened in the Plotwork editor. Anyone who can open the picture can then read the source. Left out, a personal diagram leaves it out and an organisation's follows its "Keep diagrams editable" setting.
-- `folder` (String) The folder to file it in, outermost first, such as `Platform/Network`. Left out, the top level.
+- `folder` (String) The folder to file it in, outermost first, such as `Platform/Network`. Left out, the top level. Names are joined by `/`, up to 5 levels of 40 characters; each name holds only letters A to Z, numbers, single spaces, `-` and `_`.
 - `name` (String) A label for the diagram in the library. Removing it later keeps the old label.
 - `organization` (String) The slug or id of the organisation whose private library holds the diagram. Defaults to the provider's `organization`. Changing it publishes to the new library and deletes the old copy.
 - `scheme` (String) `light` (the default), `dark`, or `auto` for one picture that follows the viewer's setting.

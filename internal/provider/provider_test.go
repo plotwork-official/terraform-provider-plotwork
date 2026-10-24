@@ -345,6 +345,36 @@ resource "plotwork_diagram" "net" {
 	})
 }
 
+func TestFolderMustFollowTheFolderRule(t *testing.T) {
+	api := newFakeAPI(t)
+	for _, folder := range []string{"Q3 (draft)", "Café", "v2.1", "Platform/", "/Platform", "a//b", "a  b", " a", "a/b/c/d/e/f"} {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: protoV6ProviderFactories,
+			Steps: []resource.TestStep{{
+				Config: api.providerBlock("") + `
+resource "plotwork_diagram" "net" {
+  source = "flow"
+  folder = "` + folder + `"
+}`,
+				ExpectError: regexp.MustCompile(`Folder names may use letters A to Z, numbers, spaces, - and _`),
+			}},
+		})
+	}
+}
+
+func TestFolderPatternAcceptsWhatTheAPIAccepts(t *testing.T) {
+	for _, folder := range []string{"Platform", "Platform/Network", "Smoke/123456", "Q3 draft/v2-final_B", "a/b/c/d/e"} {
+		if !folderPattern.MatchString(folder) {
+			t.Errorf("folderPattern refuses %q, which the API accepts", folder)
+		}
+	}
+	for _, folder := range []string{"Q3 (draft)", "Café", "日本", "a\tb", "a/b/c/d/e/f", "a  b", "a ", ""} {
+		if folderPattern.MatchString(folder) {
+			t.Errorf("folderPattern accepts %q, which the API refuses", folder)
+		}
+	}
+}
+
 func TestDiagramImport(t *testing.T) {
 	api := newFakeAPI(t)
 	config := api.providerBlock(`organization = "the-team"`) + `resource "plotwork_diagram" "net" { source = "flow" }`

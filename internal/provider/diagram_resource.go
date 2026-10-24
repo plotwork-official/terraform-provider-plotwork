@@ -105,8 +105,14 @@ func (r *diagramResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Validators:          []validator.String{stringvalidator.LengthBetween(1, 80)},
 			},
 			"folder": schema.StringAttribute{
-				MarkdownDescription: "The folder to file it in, outermost first, such as `Platform/Network`. Left out, the top level.",
-				Optional:            true,
+				MarkdownDescription: "The folder to file it in, outermost first, such as `Platform/Network`. Left out, the top level. " +
+					"Names are joined by `/`, up to 5 levels of 40 characters; each name holds only letters A to Z, numbers, " +
+					"single spaces, `-` and `_`.",
+				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, folderPathMaxLength),
+					stringvalidator.RegexMatches(folderPattern, folderRule),
+				},
 			},
 			"scheme": schema.StringAttribute{
 				MarkdownDescription: "`light` (the default), `dark`, or `auto` for one picture that follows the viewer's setting.",
@@ -400,6 +406,21 @@ const libraryPersonal = "personal"
 
 // aliasPattern is the API's rule for a stable link's name.
 var aliasPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+// folderPattern is the API's folder rule, copied byte for byte from
+// FOLDER_PATH_PATTERN in plotwork-app (packages/diagrams/src/constants/folders.ts):
+// one to five names joined by "/", each of letters A to Z, digits, "-" and "_",
+// with single spaces between words. The length of each name is the API's to check.
+var folderPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*(?:/[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*){0,4}$`)
+
+// folderPathMaxLength is the longest folder path: five names of 40 characters
+// and a slash between each.
+const folderPathMaxLength = 5*40 + 4
+
+// folderRule is what a refused folder is told, after "value must be". It
+// carries the API's own sentence.
+const folderRule = "names joined by / with no / at either end, up to 5 levels. " +
+	"Folder names may use letters A to Z, numbers, spaces, - and _, never two spaces together or one at either end"
 
 // cutLast splits s around the last sep, as strings.Cut does around the first.
 func cutLast(s, sep string) (before, after string, found bool) {
