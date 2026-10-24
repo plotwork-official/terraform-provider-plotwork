@@ -13,7 +13,8 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - "-s -w -X main.version={{ .Version }}"
+      # A pre-release (v0.2.0-beta.1) talks to the preview API by default; a stable release to production.
+      - "-s -w -X main.version={{ .Version }} -X main.defaultAPIURL={{ if .Prerelease }}https://api-preview.plotwork.dev{{ else }}https://api.plotwork.dev{{ end }}"
     goos:
       - freebsd
       - windows
@@ -54,6 +55,8 @@ signs:
       - "--detach-sign"
       - "${artifact}"
 release:
+  # A tag with a pre-release suffix is marked as a pre-release on GitHub.
+  prerelease: auto
   extra_files:
     - glob: terraform-registry-manifest.json
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"

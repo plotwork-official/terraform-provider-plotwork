@@ -65,6 +65,15 @@ terraform apply
 | `PLOTWORK_ORG` | `organization` | The organisation `plotwork_diagram` publishes to. Needed with an organisation key |
 | `PLOTWORK_API_URL` | `api_url` | Another API, such as a preview environment |
 
+## Release channels
+
+| Version | Talks to by default | Get it with |
+|---|---|---|
+| Stable, such as `0.2.0` | Production, `https://api.plotwork.dev` | `version = "~> 0.2"` |
+| Pre-release, such as `0.3.0-beta.1` | Preview, `https://api-preview.plotwork.dev` | `version = "0.3.0-beta.1"`: a range never picks a pre-release |
+
+`api_url` or `PLOTWORK_API_URL` overrides either. How releases are made: [RELEASING.md](RELEASING.md).
+
 ## What leaves your machine
 
 `plotwork_import` sends the files you give it; the others send diagram source. Plotwork works on it in memory and keeps nothing unless `plotwork_diagram` publishes it. Pass configuration, not state: state can hold secrets.

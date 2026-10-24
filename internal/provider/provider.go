@@ -36,6 +36,10 @@ type plotworkProvider struct {
 	// version is the release version, "dev" for a local build and "test"
 	// in tests. It is sent in the User-Agent.
 	version string
+	// defaultAPIURL is the API used when neither api_url nor PLOTWORK_API_URL
+	// names one. A release sets it by channel: production for a stable
+	// version, preview for a pre-release such as 0.2.0-beta.1.
+	defaultAPIURL string
 }
 
 // plotworkProviderModel is the provider block.
@@ -57,9 +61,14 @@ type providerData struct {
 }
 
 // New returns the constructor the plugin server calls for each session.
-func New(version string) func() provider.Provider {
+// defaultAPIURL is the API to use when the configuration names none; empty
+// means the production API.
+func New(version, defaultAPIURL string) func() provider.Provider {
+	if defaultAPIURL == "" {
+		defaultAPIURL = client.DefaultBaseURL
+	}
 	return func() provider.Provider {
-		return &plotworkProvider{version: version}
+		return &plotworkProvider{version: version, defaultAPIURL: defaultAPIURL}
 	}
 }
 
@@ -82,8 +91,9 @@ func (p *plotworkProvider) Schema(_ context.Context, _ provider.SchemaRequest, r
 				Sensitive: true,
 			},
 			"api_url": schema.StringAttribute{
-				MarkdownDescription: "The API's address. Defaults to `" + envAPIURL + "`, else `" + client.DefaultBaseURL + "`.",
-				Optional:            true,
+				MarkdownDescription: "The API's address. Defaults to `" + envAPIURL + "`, else the API of the provider's release channel: " +
+					"`" + client.DefaultBaseURL + "` for a stable version, `" + client.PreviewBaseURL + "` for a pre-release such as `0.2.0-beta.1`.",
+				Optional: true,
 			},
 			"organization": schema.StringAttribute{
 				MarkdownDescription: "The slug or id of the organisation `plotwork_diagram` publishes to when it names none. " +
@@ -118,6 +128,9 @@ func (p *plotworkProvider) Configure(ctx context.Context, req provider.Configure
 
 	apiKey := valueOrEnv(config.APIKey, envAPIKey)
 	apiURL := valueOrEnv(config.APIURL, envAPIURL)
+	if apiURL == "" {
+		apiURL = p.defaultAPIURL
+	}
 	data := &providerData{
 		client: client.New(apiURL, apiKey,
 			client.WithUserAgent("terraform-provider-plotwork/"+p.version+" (+https://registry.terraform.io/providers/plotwork-official/plotwork)"),

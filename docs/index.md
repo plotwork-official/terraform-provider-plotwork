@@ -45,6 +45,15 @@ export PLOTWORK_ORG="acme"   # only to publish to an organisation's library
 
 An organisation key publishes only to its own organisation's library, so set `organization` with one.
 
+## Release channels
+
+| Version | Talks to by default | Get it with |
+|---|---|---|
+| Stable, such as `0.2.0` | `https://api.plotwork.dev` | `version = "~> 0.2"` |
+| Pre-release, such as `0.3.0-beta.1` | `https://api-preview.plotwork.dev` | `version = "0.3.0-beta.1"` (an exact version: a range never picks a pre-release) |
+
+`api_url` or `PLOTWORK_API_URL` overrides the default of either. A key from one environment does not work in the other.
+
 ## What leaves your machine
 
 `plotwork_import` sends the text of the files you give it, and `plotwork_render` and `plotwork_diagram`
@@ -64,5 +73,5 @@ a wiki, or an architecture decision record.
 ### Optional
 
 - `api_key` (String, Sensitive) A Plotwork API key: a personal key, or an organisation key from **Keys and CI**. Defaults to the `PLOTWORK_API_KEY` environment variable. Prefer the variable to a value in code.
-- `api_url` (String) The API's address. Defaults to `PLOTWORK_API_URL`, else `https://api.plotwork.dev`.
+- `api_url` (String) The API's address. Defaults to `PLOTWORK_API_URL`, else the API of the provider's release channel: `https://api.plotwork.dev` for a stable version, `https://api-preview.plotwork.dev` for a pre-release such as `0.2.0-beta.1`.
 - `organization` (String) The slug or id of the organisation `plotwork_diagram` publishes to when it names none. Defaults to `PLOTWORK_ORG`. Required for an organisation key, which publishes only to its own organisation.

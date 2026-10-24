@@ -15,15 +15,20 @@ import (
 	"github.com/plotwork-official/terraform-provider-plotwork/internal/provider"
 )
 
-// version is set by GoReleaser at release (-X main.version=...).
-var version = "dev"
+// version and defaultAPIURL are set by GoReleaser at release
+// (-X main.version=...). A pre-release build defaults to the preview API, a
+// stable one to production; api_url and PLOTWORK_API_URL override either.
+var (
+	version       = "dev"
+	defaultAPIURL = "https://api.plotwork.dev"
+)
 
 func main() {
 	var debug bool
 	flag.BoolVar(&debug, "debug", false, "run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	err := providerserver.Serve(context.Background(), provider.New(version), providerserver.ServeOpts{
+	err := providerserver.Serve(context.Background(), provider.New(version, defaultAPIURL), providerserver.ServeOpts{
 		Address: "registry.terraform.io/plotwork-official/plotwork",
 		Debug:   debug,
 	})

@@ -23,8 +23,13 @@ import (
 	"time"
 )
 
-// DefaultBaseURL is the hosted Plotwork API.
-const DefaultBaseURL = "https://api.plotwork.dev"
+const (
+	// DefaultBaseURL is the hosted Plotwork API.
+	DefaultBaseURL = "https://api.plotwork.dev"
+	// PreviewBaseURL is Plotwork's preview environment, which pre-release
+	// builds of the provider use by default.
+	PreviewBaseURL = "https://api-preview.plotwork.dev"
+)
 
 const (
 	// requestTimeout bounds one HTTP attempt. A layout of a large diagram

@@ -17,7 +17,7 @@ import (
 // protoV6ProviderFactories serves the provider to the Terraform CLI that
 // terraform-plugin-testing runs, in process.
 var protoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"plotwork": providerserver.NewProtocol6WithError(New("test")()),
+	"plotwork": providerserver.NewProtocol6WithError(New("test", "")()),
 }
 
 // These tests drive the real Terraform CLI against an in-memory fake of the
@@ -375,5 +375,24 @@ func TestDiagramImport(t *testing.T) {
 				ExpectError:   regexp.MustCompile(`Cannot import non-existent remote object`),
 			},
 		},
+	})
+}
+
+func TestBuildDefaultAPIIsUsedWhenNothingNamesOne(t *testing.T) {
+	api := newFakeAPI(t)
+	t.Setenv(envAPIURL, "")
+	resource.UnitTest(t, resource.TestCase{
+		// As a pre-release build is made: its default API is the preview one.
+		ProtoV6ProviderFactories: map[string]func() (tfprotov6.ProviderServer, error){
+			"plotwork": providerserver.NewProtocol6WithError(New("test", api.srv.URL)()),
+		},
+		Steps: []resource.TestStep{{
+			Config: `
+provider "plotwork" {
+  api_key = "` + fakeAPIKey + `"
+}
+data "plotwork_render" "net" { source = "flow" }`,
+			Check: resource.TestCheckResourceAttr("data.plotwork_render.net", "width", "640"),
+		}},
 	})
 }
