@@ -1,0 +1,24 @@
+# Build output
+/terraform-provider-plotwork
+bin/
+dist/
+*.exe
+*.test
+
+# Terraform working files from running the examples
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+*.svg
+
+# Local secrets and editor files
+.envrc
+.env
+.idea/
+.vscode/
+.DS_Store
+*~
+.*.swp

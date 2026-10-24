@@ -1,0 +1,17 @@
+flow "${environment} network" desc="Traffic from the internet to the ${environment} application, drawn from live Terraform outputs."
+
+node users   person        "Users"
+node lb      gateway       "Load balancer"  sub="${lb_dns_name}"
+
+group vpc "VPC ${vpc_cidr}" type=network {
+%{ for name, cidr in subnets ~}
+  node ${replace(name, "-", "_")} service "${name}" sub="${cidr}"
+%{ endfor ~}
+  node db database "PostgreSQL" sub="${db_endpoint}"
+}
+
+users -> lb : "HTTPS"
+%{ for name, cidr in subnets ~}
+lb -> ${replace(name, "-", "_")} : "routes"
+${replace(name, "-", "_")} -> db : "queries" role=data
+%{ endfor ~}
