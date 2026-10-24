@@ -76,6 +76,7 @@ jobs:
           PLOTWORK_FREE_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
           PLOTWORK_FREE_ORG: ${{ vars.PLOTWORK_FREE_ORG }}
       - name: Wait for the registry to serve the version
+        id: registry
         run: |
           url="https://registry.terraform.io/v1/providers/plotwork-official/plotwork/versions"
           for attempt in $(seq 60); do
@@ -95,6 +96,8 @@ jobs:
           PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_API_KEY }}
           PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
       - name: Refusals with the Free key
+        # Runs even when the smoke test failed, so one run reports both suites.
+        if: ${{ !cancelled() && steps.registry.outcome == 'success' }}
         run: tests/denials/run-denials.sh "$SMOKE_ENVIRONMENT"
         env:
           PLOTWORK_PROVIDER_VERSION: ${{ inputs.version }}
