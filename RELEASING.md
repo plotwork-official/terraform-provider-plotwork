@@ -69,14 +69,15 @@ The pipeline tests with system identities from the Plotwork admin console (Syste
 
 | Identity | Plan | Skips | Then |
 |---|---|---|---|
-| Enterprise | Enterprise, kept until deleted | Daily calls, Hosted diagrams, Hosted bytes, Stable links | Mint key. Its organisation is made with it. |
+| Enterprise | Enterprise, kept until deleted | Daily calls, Hosted diagrams, Hosted bytes, Stable links | Its organisation is made with it. Mint organisation key with the scopes Diagrams and Brand, icons and patterns; then Mint personal key. |
 | Free | Free, kept until deleted | None | Mint key, then Create organisation. |
 
 Put them in this repository's environments (Settings, Environments, `preview` and `production`):
 
 ```shell
 REPO=plotwork-official/terraform-provider-plotwork
-gh secret set PLOTWORK_API_KEY --env preview -R "$REPO"        # the Enterprise identity's key
+gh secret set PLOTWORK_API_KEY --env preview -R "$REPO"            # the Enterprise organisation key
+gh secret set PLOTWORK_PERSONAL_API_KEY --env preview -R "$REPO"   # the Enterprise identity's personal key
 gh variable set PLOTWORK_ORG --env preview -R "$REPO" --body <its organisation's slug>
 gh secret set PLOTWORK_FREE_API_KEY --env preview -R "$REPO"   # the Free identity's key
 gh variable set PLOTWORK_FREE_ORG --env preview -R "$REPO" --body <the Free organisation's slug>

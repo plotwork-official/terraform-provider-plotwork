@@ -10,7 +10,9 @@
 #
 # The release pipeline calls it for preview with the beta, then for production
 # with the stable version. Each GitHub environment holds:
-#   secret   PLOTWORK_API_KEY        an Enterprise system identity's personal key
+#   secret   PLOTWORK_API_KEY        an Enterprise system identity's organisation key, with the
+#                                    Diagrams and Brand, icons and patterns scopes
+#   secret   PLOTWORK_PERSONAL_API_KEY  the same identity's personal key, for the personal library
 #   variable PLOTWORK_ORG            the organisation that identity owns
 #   secret   PLOTWORK_FREE_API_KEY   a Free system identity's personal key
 #   variable PLOTWORK_FREE_ORG       an organisation the Free identity owns
@@ -66,12 +68,14 @@ jobs:
         run: |
           missing=""
           [ -n "$PLOTWORK_API_KEY" ] || missing="$missing PLOTWORK_API_KEY"
+          [ -n "$PLOTWORK_PERSONAL_API_KEY" ] || missing="$missing PLOTWORK_PERSONAL_API_KEY"
           [ -n "$PLOTWORK_ORG" ] || missing="$missing PLOTWORK_ORG"
           [ -n "$PLOTWORK_FREE_API_KEY" ] || missing="$missing PLOTWORK_FREE_API_KEY"
           [ -n "$PLOTWORK_FREE_ORG" ] || missing="$missing PLOTWORK_FREE_ORG"
           if [ -n "$missing" ]; then echo "::error::The $SMOKE_ENVIRONMENT environment is missing:$missing"; exit 1; fi
         env:
           PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_API_KEY }}
+          PLOTWORK_PERSONAL_API_KEY: ${{ secrets.PLOTWORK_PERSONAL_API_KEY }}
           PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
           PLOTWORK_FREE_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
           PLOTWORK_FREE_ORG: ${{ vars.PLOTWORK_FREE_ORG }}
@@ -94,6 +98,7 @@ jobs:
         env:
           PLOTWORK_PROVIDER_VERSION: ${{ inputs.version }}
           PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_API_KEY }}
+          PLOTWORK_PERSONAL_API_KEY: ${{ secrets.PLOTWORK_PERSONAL_API_KEY }}
           PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
       - name: Refusals with the Free key
         # Runs even when the smoke test failed, so one run reports both suites.
