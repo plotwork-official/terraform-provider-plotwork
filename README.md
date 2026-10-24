@@ -55,7 +55,7 @@ terraform apply
 | A picture with live values (CIDRs, endpoints, DNS names) | `templatefile()` filled with resource attributes → `plotwork_diagram` |
 | Diagrams the team browses in Plotwork | `plotwork_diagram` with `organization`, or an organisation key |
 
-[`examples/complete`](examples/complete) does all three for one stack.
+[`examples/complete`](examples/complete) does all three for one stack, and [terraform-plotwork-examples](https://github.com/plotwork-official/terraform-plotwork-examples) has eight runnable examples with the smoke test each release passes.
 
 ## Authentication
 
