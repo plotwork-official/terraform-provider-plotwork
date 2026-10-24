@@ -1,5 +1,8 @@
-# Builds and signs a release when a tag v* is pushed. The Terraform and
-# OpenTofu registries pick the GitHub release up from its signed checksums.
+# Builds and signs a release: when a tag v* is pushed by a person, or when the
+# release pipeline (pipeline.yml) calls it with the tag it made. A tag pushed by
+# a workflow starts no workflow, so the pipeline calls this one itself. The
+# Terraform and OpenTofu registries pick the GitHub release up from its signed
+# checksums.
 # Needs the repository secrets GPG_PRIVATE_KEY and PASSPHRASE, and the key's
 # public half added to the registry's signing keys.
 name: Release
@@ -7,6 +10,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: The tag to release, such as v0.2.0-beta.1. It must already be pushed.
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -18,9 +27,13 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # The tag being released: the one pushed, or the one the pipeline passed.
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -44,13 +57,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          # A beta and its stable release share a commit, so name the tag rather than let GoReleaser pick one.
+          GORELEASER_CURRENT_TAG: ${{ env.TAG }}
       # A CycloneDX SBOM for each archive, attached to the release but kept out of the signed SHA256SUMS, which the
       # Terraform Registry reads as the list of provider archives.
       - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
       - name: Attach SBOMs
         run: |
           for zip in dist/*.zip; do syft "$zip" --output "cyclonedx-json=$zip.cdx.json"; done
-          gh release upload "$GITHUB_REF_NAME" dist/*.zip.cdx.json --clobber
+          gh release upload "$TAG" dist/*.zip.cdx.json --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # SLSA build provenance for every archive, verifiable with

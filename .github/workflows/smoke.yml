@@ -1,0 +1,102 @@
+# Tests a released version from the Terraform Registry against one Plotwork
+# environment, with the test suites of plotwork-official/terraform-plotwork-examples:
+#
+#   the smoke test, with an Enterprise key: every example applies, its outputs
+#   and links check out, a second plan has no changes, and destroy cleans up
+#   (the organisation library, brand, icons and patterns in PLOTWORK_ORG);
+#
+#   the refusals, with a Free key: every paid feature is refused with the code
+#   a customer sees.
+#
+# The release pipeline calls it for preview with the beta, then for production
+# with the stable version. Each GitHub environment holds:
+#   secret   PLOTWORK_API_KEY        an Enterprise system identity's personal key
+#   variable PLOTWORK_ORG            the organisation that identity owns
+#   secret   PLOTWORK_FREE_API_KEY   a Free system identity's personal key
+#   variable PLOTWORK_FREE_ORG       an organisation the Free identity owns
+name: Smoke
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: preview or production
+        type: string
+        required: true
+      version:
+        description: The provider version on the registry, such as 0.2.0-beta.1
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [preview, production]
+        default: preview
+      version:
+        description: The provider version on the registry, such as 0.2.0-beta.1
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: "Smoke: ${{ inputs.environment }}, ${{ inputs.version }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    concurrency:
+      # One run at a time per environment, so two runs never share an organisation's brand.
+      group: provider-smoke-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      VERSION: ${{ inputs.version }}
+      SMOKE_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: plotwork-official/terraform-plotwork-examples
+          ref: main
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+      - name: Check the environment has its keys
+        run: |
+          missing=""
+          [ -n "$PLOTWORK_API_KEY" ] || missing="$missing PLOTWORK_API_KEY"
+          [ -n "$PLOTWORK_ORG" ] || missing="$missing PLOTWORK_ORG"
+          [ -n "$PLOTWORK_FREE_API_KEY" ] || missing="$missing PLOTWORK_FREE_API_KEY"
+          [ -n "$PLOTWORK_FREE_ORG" ] || missing="$missing PLOTWORK_FREE_ORG"
+          if [ -n "$missing" ]; then echo "::error::The $SMOKE_ENVIRONMENT environment is missing:$missing"; exit 1; fi
+        env:
+          PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_API_KEY }}
+          PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
+          PLOTWORK_FREE_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
+          PLOTWORK_FREE_ORG: ${{ vars.PLOTWORK_FREE_ORG }}
+      - name: Wait for the registry to serve the version
+        run: |
+          url="https://registry.terraform.io/v1/providers/plotwork-official/plotwork/versions"
+          for attempt in $(seq 60); do
+            if curl -fsS "$url" | jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' >/dev/null 2>&1; then
+              echo "The registry serves $VERSION."
+              exit 0
+            fi
+            echo "Waiting for the registry to serve $VERSION ($attempt of 60)"
+            sleep 30
+          done
+          echo "::error::After 30 minutes the Terraform Registry still does not serve $VERSION. Check the provider's page on the registry for an ingest error."
+          exit 1
+      - name: Smoke test with the Enterprise key
+        run: tests/smoke/run-smoke.sh "$SMOKE_ENVIRONMENT"
+        env:
+          PLOTWORK_PROVIDER_VERSION: ${{ inputs.version }}
+          PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_API_KEY }}
+          PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
+      - name: Refusals with the Free key
+        run: tests/denials/run-denials.sh "$SMOKE_ENVIRONMENT"
+        env:
+          PLOTWORK_PROVIDER_VERSION: ${{ inputs.version }}
+          PLOTWORK_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
+          PLOTWORK_ORG: ${{ vars.PLOTWORK_FREE_ORG }}

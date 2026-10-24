@@ -1,0 +1,129 @@
+# The release pipeline. On every push to main with something to release
+# (scripts/next-version.sh reads the Conventional Commits since the last
+# stable tag):
+#
+#   1. tag and release vX.Y.Z-beta.N, a pre-release whose default API is preview;
+#   2. smoke-test that version from the registry against preview, with an
+#      Enterprise key and with a Free key (smoke.yml);
+#   3. only if that passes, tag and release vX.Y.Z on the same commit;
+#   4. smoke-test vX.Y.Z from the registry against production.
+#
+# A failed preview smoke test stops the pipeline before anything stable is
+# released. A failed production smoke test cannot take a release back (the
+# registries keep every version): it fails the run, and the fix is the next
+# patch. Rerunning the workflow on the same commit picks up where it stopped.
+name: Release pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Releases go out one at a time, in the order the commits landed.
+concurrency:
+  group: release-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: What to release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.next.outputs.release }}
+      version: ${{ steps.next.outputs.version }}
+      beta_tag: ${{ steps.next.outputs.beta_tag }}
+      beta_version: ${{ steps.next.outputs.beta_version }}
+      beta_exists: ${{ steps.next.outputs.beta_exists }}
+      stable_exists: ${{ steps.next.outputs.stable_exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: next
+        run: |
+          scripts/next-version.sh | tee -a "$GITHUB_OUTPUT"
+          { echo "### Release plan"; echo; echo '```'; scripts/next-version.sh; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+  tag-beta:
+    name: Tag the beta
+    needs: plan
+    if: needs.plan.outputs.release == 'true' && needs.plan.outputs.beta_exists != 'true' && needs.plan.outputs.stable_exists != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+        env:
+          TAG: ${{ needs.plan.outputs.beta_tag }}
+
+  release-beta:
+    name: Release the beta
+    needs: [plan, tag-beta]
+    if: needs.plan.outputs.release == 'true' && needs.plan.outputs.beta_exists != 'true' && needs.plan.outputs.stable_exists != 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.plan.outputs.beta_tag }}
+    secrets: inherit
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+  smoke-preview:
+    name: Smoke test on preview
+    needs: [plan, release-beta]
+    # Runs after a new beta, and on a rerun for a commit whose beta is already out.
+    if: always() && needs.plan.outputs.release == 'true' && needs.plan.outputs.stable_exists != 'true' && (needs.release-beta.result == 'success' || needs.plan.outputs.beta_exists == 'true')
+    uses: ./.github/workflows/smoke.yml
+    with:
+      environment: preview
+      version: ${{ needs.plan.outputs.beta_version }}
+    secrets: inherit
+
+  tag-stable:
+    name: Tag the stable version
+    needs: [plan, smoke-preview]
+    if: always() && needs.smoke-preview.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+
+  release-stable:
+    name: Release the stable version
+    needs: [plan, tag-stable]
+    if: always() && needs.tag-stable.result == 'success'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: v${{ needs.plan.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+  smoke-production:
+    name: Smoke test on production
+    needs: [plan, release-stable]
+    if: always() && needs.release-stable.result == 'success'
+    uses: ./.github/workflows/smoke.yml
+    with:
+      environment: production
+      version: ${{ needs.plan.outputs.version }}
+    secrets: inherit

@@ -6,11 +6,11 @@ How a version of the provider is built, signed, published to the Terraform and O
 
 | Question | Answer |
 |---|---|
-| How is a release made? | Push a tag `v*`. The Release workflow tests, builds, signs and publishes a GitHub release; the registries pick it up. |
+| How is a release made? | By merging to `main`. The Release pipeline (`pipeline.yml`) works out the version from the Conventional Commits, releases a beta, smoke-tests it on preview, and only then releases the stable version and smoke-tests it on production. A tag `v*` pushed by hand still releases that tag alone. |
 | Preview or production? | A tag with a pre-release suffix (`v0.2.0-beta.1`) builds a version whose default API is preview. A plain tag (`v0.2.0`) defaults to production. |
 | How do people get a beta? | Only by naming it exactly: `version = "0.2.0-beta.1"`. A range such as `~> 0.2` never selects a pre-release. |
 | What signs it? | A GPG key whose private half is the repository secret `GPG_PRIVATE_KEY`, and whose public half is on each registry. |
-| How is it tested before stable? | The smoke test in [terraform-plotwork-examples](https://github.com/plotwork-official/terraform-plotwork-examples) runs every example against preview with the beta, then against production with the stable version. |
+| How is it tested before stable? | The beta, from the registry, runs every example of [terraform-plotwork-examples](https://github.com/plotwork-official/terraform-plotwork-examples) on preview with an Enterprise key, and the Free plan refusals suite with a Free key. Stable is released only if both pass, then tested the same way on production. |
 
 ## 1. One-time setup: the signing key
 
@@ -63,41 +63,45 @@ OpenTofu's registry is a GitHub repository; submissions are issues.
 
 A bot opens the pull request; once merged, OpenTofu reads new GitHub releases by itself.
 
-## 3. Release a beta for preview
+## 3. One-time setup: the pipeline's keys
+
+The pipeline tests with system identities from the Plotwork admin console (System, New system identity), one pair for each environment, made in that environment's console:
+
+| Identity | Plan | Skips | Then |
+|---|---|---|---|
+| Enterprise | Enterprise, kept until deleted | Daily calls, Hosted diagrams, Hosted bytes, Stable links | Mint key. Its organisation is made with it. |
+| Free | Free, kept until deleted | None | Mint key, then Create organisation. |
+
+Put them in this repository's environments (Settings, Environments, `preview` and `production`):
 
 ```shell
-git switch main && git pull
-git tag v0.1.0-beta.1
-git push origin v0.1.0-beta.1
-gh run watch -R plotwork-official/terraform-provider-plotwork   # the Release workflow
+REPO=plotwork-official/terraform-provider-plotwork
+gh secret set PLOTWORK_API_KEY --env preview -R "$REPO"        # the Enterprise identity's key
+gh variable set PLOTWORK_ORG --env preview -R "$REPO" --body <its organisation's slug>
+gh secret set PLOTWORK_FREE_API_KEY --env preview -R "$REPO"   # the Free identity's key
+gh variable set PLOTWORK_FREE_ORG --env preview -R "$REPO" --body <the Free organisation's slug>
+# and the same four for --env production, from production's console
 ```
 
-The GitHub release is marked pre-release. This build talks to `https://api-preview.plotwork.dev` unless `api_url` says otherwise. Smoke test it against preview:
+The smoke run sets and then removes each organisation's brand, icons and patterns, so use these organisations for nothing else.
 
-```shell
-gh workflow run smoke.yml -R plotwork-official/terraform-plotwork-examples \
-  -f environment=preview -f provider_version=0.1.0-beta.1
-```
+## 4. How a release goes out
 
-Fix and tag `-beta.2`, `-beta.3` until it is clean.
+Merge to `main` with Conventional Commit messages. The pipeline does the rest:
 
-## 4. Release the stable version for production
+| Step | What happens |
+|---|---|
+| What to release | `scripts/next-version.sh` reads the commits since the last stable tag: a breaking change bumps the minor before 1.0 (the major after), `feat:` the minor, `fix:` or `perf:` the patch. With nothing to release the run ends here. |
+| Beta | Tags `vX.Y.Z-beta.N` and releases it: signed, a pre-release, preview by default. |
+| Preview | Waits for the Terraform Registry to serve the beta, then runs the smoke test (Enterprise key) and the refusals (Free key) on preview. A failure stops here: nothing stable is released. |
+| Stable | Tags `vX.Y.Z` on the same commit and releases it. |
+| Production | Waits for the registry, then runs both suites on production. |
 
-Deploy the API the provider needs to production first. Then tag the same commit as the last good beta:
+The run's summary shows each suite's table. To start it by hand (to retry after fixing an environment's keys), run **Release pipeline** from the Actions tab; on a commit already released it picks up where it stopped.
 
-```shell
-git tag v0.1.0 v0.1.0-beta.3^{commit}
-git push origin v0.1.0
-```
+A failure on production cannot take the release back, because the registries keep every version. Fix it and merge: the pipeline releases the next patch. Deploy a Plotwork API change to production before merging provider code that needs it, or the production smoke test fails.
 
-Smoke test it against production:
-
-```shell
-gh workflow run smoke.yml -R plotwork-official/terraform-plotwork-examples \
-  -f environment=production -f provider_version=0.1.0
-```
-
-Update `CHANGELOG.md`, moving "unreleased" to the version and date.
+To release by hand instead, push a tag (`git tag v0.3.0-beta.1 && git push origin v0.3.0-beta.1`): the Release workflow releases that tag alone, with no smoke test. To smoke-test any released version, run **Smoke** from the Actions tab with the environment and the version.
 
 ## 5. What a release contains
 
