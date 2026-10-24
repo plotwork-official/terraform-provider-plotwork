@@ -106,7 +106,7 @@ Update `CHANGELOG.md`, moving "unreleased" to the version and date.
 | `terraform-provider-plotwork_<v>_<os>_<arch>.zip` | The binary for each platform |
 | `..._SHA256SUMS` and `.sig` | Checksums, signed with the GPG key: what the registries verify |
 | `..._manifest.json` | The plugin protocol version (6) |
-| `*.cdx.json` | A CycloneDX SBOM for each archive |
+| `*.cdx.json` | A CycloneDX SBOM for each archive, attached after the signed release and kept out of `SHA256SUMS`, which the registries read as the list of archives |
 | Attestations | SLSA build provenance. Check one with `gh attestation verify <zip> --repo plotwork-official/terraform-provider-plotwork` |
 
 ## 6. If something goes wrong

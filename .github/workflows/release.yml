@@ -37,8 +37,6 @@ jobs:
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
-      # GoReleaser calls Syft to write a CycloneDX SBOM for each archive.
-      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
@@ -46,6 +44,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+      # A CycloneDX SBOM for each archive, attached to the release but kept out of the signed SHA256SUMS, which the
+      # Terraform Registry reads as the list of provider archives.
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - name: Attach SBOMs
+        run: |
+          for zip in dist/*.zip; do syft "$zip" --output "cyclonedx-json=$zip.cdx.json"; done
+          gh release upload "$GITHUB_REF_NAME" dist/*.zip.cdx.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # SLSA build provenance for every archive, verifiable with
       # `gh attestation verify <zip> --repo plotwork-official/terraform-provider-plotwork`.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
