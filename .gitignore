@@ -22,3 +22,7 @@ crash.log
 .DS_Store
 *~
 .*.swp
+
+# Local assistant state, and the exported public signing key (kept in the password manager)
+.claude/
+*.asc
