@@ -1,0 +1,23 @@
+name: diagrams
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: plotwork-official/plotwork-action@35c08022ae999fc36bc881aad0becab4ae1034e0 # v1.2.0
+        with:
+          command: generate
+          mode: check
+          report-drift: true

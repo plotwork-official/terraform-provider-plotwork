@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.plotwork.dev/schemas/plotwork.config.json",
+  "defaults": {
+    "scheme": "auto"
+  },
+  "sources": [
+    {
+      "name": "workflows",
+      "from": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml"
+      ],
+      "format": "github-actions",
+      "out": "docs/diagrams/workflows.diagram"
+    }
+  ]
+}
