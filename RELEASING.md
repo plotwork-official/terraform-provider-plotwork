@@ -52,7 +52,7 @@ Keep a backup of the private key in the password manager too (`gpg --armor --exp
 1. Sign in at [registry.terraform.io](https://registry.terraform.io) with GitHub. On GitHub's consent page, grant access to the `plotwork-official` organisation (Request or Grant next to it). If the organisation restricts OAuth apps, approve "Terraform Registry" under the organisation's Settings, Third-party access.
 2. Your avatar, **User Settings**, **Signing Keys**. Choose the namespace `plotwork-official` and paste `plotwork-signing-key.asc`.
 3. Make the first release (section 3), so the repository has a signed release.
-4. **Publish**, **Provider**, choose `plotwork-official`, then `terraform-provider-plotwork`, accept the terms, **Publish**. The registry adds a webhook, so every later release appears on its own within minutes.
+4. **Publish**, **Provider**, choose `plotwork-official`, then `terraform-provider-plotwork`, accept the terms, **Publish**. The registry adds a webhook, so every later release appears on its own within minutes. When it misses one (0.1.0-beta.3 was not ingested for 38 minutes, and the repository showed no webhook), open the provider on the registry, **Manage Provider**, **Resync**: the smoke job says so after 10 minutes and keeps waiting for an hour.
 
 ### OpenTofu Registry
 
@@ -94,7 +94,7 @@ Merge to `main` with Conventional Commit messages. The pipeline does the rest:
 |---|---|
 | What to release | `scripts/next-version.sh` reads the commits since the last stable tag: a breaking change bumps the minor before 1.0 (the major after), `feat:` the minor, `fix:` or `perf:` the patch. With nothing to release the run ends here. |
 | Beta | Tags `vX.Y.Z-beta.N` and releases it: signed, a pre-release, preview by default. |
-| Preview | Waits for the Terraform Registry to serve the beta, then runs the smoke test (Enterprise key) and the refusals (Free key) on preview. A failure stops here: nothing stable is released. |
+| Preview | Waits for the Terraform Registry to ingest the beta (its v2 API, up to an hour, with a Resync notice after 10 minutes) and for the cached versions list `terraform init` reads (up to 30 minutes), then runs the smoke test (Enterprise key) and the refusals (Free key) on preview. A failure stops here: nothing stable is released. |
 | Stable | Tags `vX.Y.Z` on the same commit and releases it. |
 | Production | Waits for the registry, then runs both suites on production. |
 

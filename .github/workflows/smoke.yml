@@ -46,7 +46,7 @@ jobs:
   smoke:
     name: "Smoke: ${{ inputs.environment }}, ${{ inputs.version }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 150
     environment: ${{ inputs.environment }}
     concurrency:
       # One run at a time per environment, so two runs never share an organisation's brand.
@@ -79,19 +79,41 @@ jobs:
           PLOTWORK_ORG: ${{ vars.PLOTWORK_ORG }}
           PLOTWORK_FREE_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
           PLOTWORK_FREE_ORG: ${{ vars.PLOTWORK_FREE_ORG }}
-      - name: Wait for the registry to serve the version
+      # Two waits. The registry's v2 API lists a release as soon as it is ingested; the v1 versions list, which `terraform init`
+      # reads, is cached and follows minutes later. Ingesting itself has taken 40 minutes when the registry's webhook missed a
+      # release, so the first wait is long and says how to resync; the second only covers the cache.
+      - name: Wait for the registry to ingest the version
         id: registry
+        timeout-minutes: 95
         run: |
-          url="https://registry.terraform.io/v1/providers/plotwork-official/plotwork/versions"
-          for attempt in $(seq 60); do
-            if curl -fsS "$url" | jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' >/dev/null 2>&1; then
-              echo "The registry serves $VERSION."
-              exit 0
+          v2="https://registry.terraform.io/v2/providers/plotwork-official/plotwork?include=provider-versions"
+          v1="https://registry.terraform.io/v1/providers/plotwork-official/plotwork/versions"
+          ingested=""
+          for attempt in $(seq 120); do
+            if curl -fsS "$v2" | jq -e --arg v "$VERSION" '.included[]? | select(.type == "provider-versions" and .attributes.version == $v)' >/dev/null 2>&1; then
+              echo "The registry has ingested $VERSION."
+              ingested=yes
+              break
             fi
-            echo "Waiting for the registry to serve $VERSION ($attempt of 60)"
+            if [ "$attempt" -eq 20 ]; then
+              echo "::warning::After 10 minutes the Terraform Registry has not ingested $VERSION. Its webhook may have missed the release: on registry.terraform.io open the provider, Manage Provider, Resync. This job keeps waiting."
+            fi
+            echo "Waiting for the registry to ingest $VERSION ($attempt of 120)"
             sleep 30
           done
-          echo "::error::After 30 minutes the Terraform Registry still does not serve $VERSION. Check the provider's page on the registry for an ingest error."
+          if [ -z "$ingested" ]; then
+            echo "::error::After 60 minutes the Terraform Registry has not ingested $VERSION. Resync it on registry.terraform.io (Manage Provider, Resync), then re-run the failed jobs."
+            exit 1
+          fi
+          for attempt in $(seq 60); do
+            if curl -fsS "$v1" | jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' >/dev/null 2>&1; then
+              echo "terraform init can install $VERSION."
+              exit 0
+            fi
+            echo "Waiting for the registry's versions list to show $VERSION ($attempt of 60)"
+            sleep 30
+          done
+          echo "::error::The registry ingested $VERSION but its versions list still does not show it after 30 minutes."
           exit 1
       - name: Smoke test with the Enterprise key
         run: tests/smoke/run-smoke.sh "$SMOKE_ENVIRONMENT"
