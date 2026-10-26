@@ -49,10 +49,14 @@ Keep a backup of the private key in the password manager too (`gpg --armor --exp
 
 ### Terraform Registry
 
-1. Sign in at [registry.terraform.io](https://registry.terraform.io) with GitHub. On GitHub's consent page, grant access to the `plotwork-official` organisation (Request or Grant next to it). If the organisation restricts OAuth apps, approve "Terraform Registry" under the organisation's Settings, Third-party access.
-2. Your avatar, **User Settings**, **Signing Keys**. Choose the namespace `plotwork-official` and paste `plotwork-signing-key.asc`.
+Publishing is managed in HCP Terraform, not by signing in to the registry with GitHub. The provider is in the HCP Terraform organisation's public namespace `plotwork-official`, and the Terraform Cloud GitHub App (installed on `plotwork-official` for selected repositories, including this one, with the release event) tells the registry about each release. No repository webhook is involved.
+
+1. Install the **Terraform Cloud** GitHub App on `plotwork-official` with access to `terraform-provider-plotwork`.
+2. In [HCP Terraform](https://app.terraform.io), the organisation, **Registry**, **Public namespaces**: claim `plotwork-official`, and add `plotwork-signing-key.asc` as its signing key.
 3. Make the first release (section 3), so the repository has a signed release.
-4. **Publish**, **Provider**, choose `plotwork-official`, then `terraform-provider-plotwork`, accept the terms, **Publish**. The registry adds a webhook, so every later release appears on its own within minutes. When it misses one (0.1.0-beta.3 was not ingested for 38 minutes, and the repository showed no webhook), open the provider on the registry, **Manage Provider**, **Resync**: the smoke job says so after 10 minutes and keeps waiting for an hour.
+4. **Publish**, **Provider**, choose `terraform-provider-plotwork`, a category, accept the terms, **Publish provider**. Every later release appears on its own within a few minutes (0.1.0 did in about 90 seconds).
+
+When a release is not picked up, open **Public namespaces**, `plotwork-official`, the provider's **…** menu, **Resync provider**. The smoke job says so after 10 minutes and keeps waiting for an hour. Doing this needs an organisation owner or the **Manage public providers** permission.
 
 ### OpenTofu Registry
 

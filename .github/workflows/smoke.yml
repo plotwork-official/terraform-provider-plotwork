@@ -80,8 +80,8 @@ jobs:
           PLOTWORK_FREE_API_KEY: ${{ secrets.PLOTWORK_FREE_API_KEY }}
           PLOTWORK_FREE_ORG: ${{ vars.PLOTWORK_FREE_ORG }}
       # Two waits. The registry's v2 API lists a release as soon as it is ingested; the v1 versions list, which `terraform init`
-      # reads, is cached and follows minutes later. Ingesting itself has taken 40 minutes when the registry's webhook missed a
-      # release, so the first wait is long and says how to resync; the second only covers the cache.
+      # reads, is cached and follows minutes later. Ingesting itself once took 40 minutes when HCP Terraform missed a
+      # release, so the first wait is long and says how to resync in HCP Terraform; the second only covers the cache.
       - name: Wait for the registry to ingest the version
         id: registry
         timeout-minutes: 95
@@ -96,13 +96,13 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 20 ]; then
-              echo "::warning::After 10 minutes the Terraform Registry has not ingested $VERSION. Its webhook may have missed the release: on registry.terraform.io open the provider, Manage Provider, Resync. This job keeps waiting."
+              echo "::warning::After 10 minutes the Terraform Registry has not ingested $VERSION. Resync it in HCP Terraform: Registry, Public namespaces, plotwork-official, the provider's menu, Resync provider. This job keeps waiting."
             fi
             echo "Waiting for the registry to ingest $VERSION ($attempt of 120)"
             sleep 30
           done
           if [ -z "$ingested" ]; then
-            echo "::error::After 60 minutes the Terraform Registry has not ingested $VERSION. Resync it on registry.terraform.io (Manage Provider, Resync), then re-run the failed jobs."
+            echo "::error::After 60 minutes the Terraform Registry has not ingested $VERSION. Resync it in HCP Terraform (Registry, Public namespaces, the provider's menu, Resync provider), then re-run the failed jobs."
             exit 1
           fi
           for attempt in $(seq 60); do
